@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+/* Enable plugins */
+@plugin "@tailwindcss/forms";
+@plugin "@tailwindcss/typography";
+
+/* Theme tweaks */
+@theme {
+  /* This replaces your old fontFamily.sans extend */
+
+  --font-sans: "Red Hat Text",
+               ui-sans-serif,
+               system-ui,
+               -apple-system,
+               BlinkMacSystemFont,
+               "Segoe UI",
+               sans-serif,
+               "Apple Color Emoji",
+               "Segoe UI Emoji",
+               "Segoe UI Symbol",
+               "Noto Color Emoji";
+}
+
+/* Tell Tailwind where to look for class names */
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.{js,jsx,ts,tsx,vue}';
