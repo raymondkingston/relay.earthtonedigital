@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 use App\Jobs\GenerateTrackWaveform;
+use Illuminate\Support\Facades\Log;
 
 class Track extends Model
 {
@@ -23,23 +24,27 @@ class Track extends Model
     ];
 
     protected $casts = [
-        'duration_seconds' => 'integer',
-        'file_size_bytes'  => 'integer',
-        'bitrate'          => 'integer',
+        'duration_seconds'      => 'integer',
+        'file_size_bytes'       => 'integer',
+        'bitrate'               => 'integer',
+        'waveform_generated_at' => 'datetime',
     ];
 
-    protected static function booted(): void
+    protected static function boot()
     {
+        parent::boot();
+
         static::saving(function (Track $track) {
-            // Only (re)analyze when the audio path changes
             if ($track->isDirty('storage_path') && $track->storage_path) {
+                // Fill duration, size, etc.
                 $track->populateAudioMetadata();
             }
         });
 
         static::saved(function (Track $track) {
             if ($track->wasChanged('storage_path') && $track->storage_path) {
-                GenerateTrackWaveform::dispatch($track);
+                // For now: run synchronously (no queue)
+                GenerateTrackWaveform::dispatchSync($track);
             }
         });
     }
@@ -56,15 +61,12 @@ class Track extends Model
         $localPath = null;
         $deleteTmp = false;
 
-        // Local disk (public) – we can access the actual file path directly
         if (method_exists($disk, 'path')) {
             $localPath = $disk->path($relativePath);
         } else {
-            // e.g. S3 – we need to download to a temp file
             $tmpFile = tempnam(sys_get_temp_dir(), 'track_');
 
             $stream = $disk->readStream($relativePath);
-
             if ($stream === false) {
                 return;
             }
@@ -88,27 +90,19 @@ class Track extends Model
             $getID3 = new \getID3;
             $info = $getID3->analyze($localPath);
 
-            // Duration in seconds
             $this->duration_seconds = isset($info['playtime_seconds'])
                 ? (int) round($info['playtime_seconds'])
                 : null;
 
-            // File size
             $this->file_size_bytes = $info['filesize'] ?? @filesize($localPath) ?: null;
-
-            // Format (e.g. mp3, flac, etc.)
             $this->format = $info['fileformat'] ?? null;
 
-            // Bitrate (bits per second)
             if (isset($info['bitrate'])) {
                 $this->bitrate = (int) $info['bitrate'];
             }
 
-            // Original filename (fallback to basename of stored path)
             $this->original_filename =
                 $info['filename'] ?? basename($this->storage_path);
-        } catch (\Throwable $e) {
-            // Fail quietly – you may want to log this later.
         } finally {
             if ($deleteTmp && isset($tmpFile) && file_exists($tmpFile)) {
                 @unlink($tmpFile);
