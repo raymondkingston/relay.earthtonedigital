@@ -36,6 +36,7 @@ class ProjectsRelationManager extends RelationManager
                 ImageColumn::make('cover_art_path')
                     ->label('Image')
                     ->disk(config('filesystems.default'))
+                    ->checkFileExistence(false)
                     ->height(60)
                     ->square()
                     ->extraImgAttributes([

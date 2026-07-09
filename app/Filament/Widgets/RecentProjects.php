@@ -28,6 +28,7 @@ class RecentProjects extends TableWidget
             ImageColumn::make('cover_art_path')
                 ->label('Image')
                 ->disk(config('filesystems.default'))
+                ->checkFileExistence(false)
                 ->height(30)
                 ->square()
                 ->extraImgAttributes([
