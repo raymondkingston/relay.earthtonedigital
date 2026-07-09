@@ -63,6 +63,7 @@ class ProjectResource extends Resource
                 Forms\Components\FileUpload::make('cover_art_path')
                     ->label('Project Image')
                     ->disk(config('filesystems.default')) // optional, default anyway
+                    ->fetchFileInformation(false)
                     ->directory(function (?Project $record) {
                         // Safety: if no record yet (on create), just drop in a generic bucket
                         if (! $record || ! $record->artist) {
