@@ -6,10 +6,27 @@ use App\Filament\Resources\TrackResource;
 use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Storage;
+use App\Models\Project;
 
 class CreateTrack extends CreateRecord
 {
     protected static string $resource = TrackResource::class;
+
+    protected function fillForm(): void
+    {
+        $this->callHook('beforeFill');
+
+        $data = [];
+        $projectId = request()->integer('project_id');
+
+        if ($projectId && Project::query()->whereKey($projectId)->exists()) {
+            $data['project_id'] = $projectId;
+        }
+
+        $this->form->fill($data);
+
+        $this->callHook('afterFill');
+    }
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {

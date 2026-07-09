@@ -11,7 +11,7 @@
                     {{ $artist->name }}
                 </div>
                 <div class="text-xs text-slate-400">
-                    {{ $artist->projects()->count() }} {{ Str::plural('Project', $artist->projects()->count()) }}
+                    {{ $artist->projects_count }} {{ Str::plural('Project', $artist->projects_count) }}
                 </div>
             </a>
         @empty

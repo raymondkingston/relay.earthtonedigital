@@ -33,7 +33,10 @@
 
             <div class="md:pr-12 lg:pr-0">
                 <h1 class="text-center sm:text-left text-2xl md:text-4xl font-semibold text-balance pt-4 sm:pt-0 mb-1">{{ $project->title }}</h1>
-                <a href="{{ route('artists.show', $project->artist) }}" class="block text-orange-500 hover:text-orange-600 text-balance text-center sm:text-left text-lg font-medium">
+                <a href="{{ route('artists.show', array_merge(
+                    ['artist' => $project->artist],
+                    request('artist_key') && $project->artist->hasValidShareKey(request()) ? ['artist_key' => request('artist_key')] : []
+                )) }}" class="block text-orange-500 hover:text-orange-600 text-balance text-center sm:text-left text-lg font-medium">
                     {{ $project->artist->name }}
                 </a>
                 @if($project->description)

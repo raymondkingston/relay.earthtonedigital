@@ -1,6 +1,6 @@
 <x-filament-widgets::widget>
     <x-filament::section>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
             <x-filament::button
                 tag="a"
@@ -18,6 +18,15 @@
                 class="w-full justify-center"
             >
                 Add a Project
+            </x-filament::button>
+
+            <x-filament::button
+                tag="a"
+                href="{{ route('filament.admin.resources.projects.batch-upload') }}"
+                icon="heroicon-o-arrow-up-tray"
+                class="w-full justify-center"
+            >
+                Batch Upload
             </x-filament::button>
 
             <x-filament::button

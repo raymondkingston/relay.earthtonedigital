@@ -13,6 +13,10 @@ class ListProjects extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('batchUpload')
+                ->label('Batch Upload')
+                ->icon('heroicon-o-arrow-up-tray')
+                ->url(ProjectResource::getUrl('batch-upload')),
             Actions\CreateAction::make(),
         ];
     }

@@ -18,6 +18,7 @@ class Track extends Model
         'project_id',
         'title',
         'track_number',
+        'recorded_at',
         'notes',
         'storage_path',
         'original_filename',
@@ -27,6 +28,7 @@ class Track extends Model
         'duration_seconds'      => 'integer',
         'file_size_bytes'       => 'integer',
         'bitrate'               => 'integer',
+        'recorded_at'           => 'date',
         'waveform_generated_at' => 'datetime',
     ];
 
@@ -42,7 +44,7 @@ class Track extends Model
         });
 
         static::saved(function (Track $track) {
-            if ($track->wasChanged('storage_path') && $track->storage_path) {
+            if ($track->storage_path && ($track->wasRecentlyCreated || $track->wasChanged('storage_path'))) {
                 // For now: run synchronously (no queue)
                 GenerateTrackWaveform::dispatchSync($track);
             }

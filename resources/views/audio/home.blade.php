@@ -31,7 +31,7 @@
             </div>
             <div class="flex flex-wrap gap-2">
                 @forelse($artists as $artist)
-                    <a href="{{ route('artists.show', $artist) }}"
+                    <a href="{{ route('artists.show', ['artist' => $artist]) }}"
                        class="border border-slate-700 rounded-full px-3 py-1 text-root hover:border-orange-700 transition duration-200">
                         {{ $artist->name }}
                     </a>

@@ -158,6 +158,7 @@ class ProjectResource extends Resource
         return [
             'index' => Pages\ListProjects::route('/'),
             'create' => Pages\CreateProject::route('/create'),
+            'batch-upload' => Pages\BatchUploadProject::route('/batch-upload'),
             'edit' => Pages\EditProject::route('/{record}/edit'),
         ];
     }
