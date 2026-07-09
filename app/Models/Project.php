@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
 
 class Project extends Model
 {
@@ -16,6 +18,7 @@ class Project extends Model
         'artist_id',
         'title',
         'slug',
+        'share_token',
         'description',
         'type',
         'recorded_at',
@@ -44,9 +47,41 @@ class Project extends Model
         return $this->hasMany(Track::class);
     }
 
+    public function isPublic(): bool
+    {
+        return $this->visibility === 'public';
+    }
+
+    public function hasValidShareKey(Request $request): bool
+    {
+        $key = $request->query('project_key');
+
+        return filled($this->share_token)
+            && is_string($key)
+            && hash_equals($this->share_token, $key);
+    }
+
+    public function isVisibleTo(Request $request): bool
+    {
+        return $request->user()
+            || $this->isPublic()
+            || $this->hasValidShareKey($request)
+            || $this->artist?->hasValidShareKey($request);
+    }
+
+    public function shareParameters(): array
+    {
+        return array_filter([
+            'artist_key' => $this->artist?->share_token,
+            'project_key' => $this->share_token,
+        ]);
+    }
+
     protected static function booted(): void
     {
         static::creating(function (Project $project) {
+            $project->share_token ??= static::uniqueShareToken();
+
             if (! $project->cover_art_path) {
 
                 $fpoOptions = config('fpo-images');
@@ -54,5 +89,14 @@ class Project extends Model
                 $project->cover_art_path = Arr::random($fpoOptions);
             }
         });
+    }
+
+    protected static function uniqueShareToken(): string
+    {
+        do {
+            $token = Str::random(12);
+        } while (static::query()->where('share_token', $token)->exists());
+
+        return $token;
     }
 }

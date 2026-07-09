@@ -1,4 +1,16 @@
-<a href="{{ route('projects.show', $project) }}"
+@php
+    $linkParameters = ['project' => $project];
+
+    if (request('artist_key') && $project->artist?->hasValidShareKey(request())) {
+        $linkParameters['artist_key'] = request('artist_key');
+    }
+
+    if (request('project_key') && $project->hasValidShareKey(request())) {
+        $linkParameters['project_key'] = request('project_key');
+    }
+@endphp
+
+<a href="{{ route('projects.show', $linkParameters) }}"
     class="block py-3 mb-2 hover:border-orange-400/70 transition">
         <div class="w-full aspect-square mb-3 flex items-center justify-center bg-slate-600/30 rounded-lg overflow-hidden relative">
             @if($project->cover_art_path)

@@ -1,12 +1,25 @@
+@php
+    if (isset($project)) {
+        $shareUrl = route('projects.show', array_merge(['project' => $project], auth()->check()
+            ? $project->shareParameters()
+            : request()->only(['artist_key', 'project_key'])));
+        $shareTitle = $project->title;
+    } elseif (isset($artist)) {
+        $shareUrl = route('artists.show', array_merge(['artist' => $artist], auth()->check()
+            ? $artist->shareParameters()
+            : request()->only(['artist_key'])));
+        $shareTitle = $artist->name;
+    } else {
+        $shareUrl = url()->current();
+        $shareTitle = config('app.name');
+    }
+@endphp
+
 <div
     x-data="{
         share() {
-            const url = '{{ url()->current() }}';
-            @if(isset($project))
-                const title = @js($project->title);
-            @elseif(isset($artist))
-                const title = @js($artist->name);
-            @endif
+            const url = @js($shareUrl);
+            const title = @js($shareTitle);
 
             if (navigator.share) {
                 navigator.share({ title, url }).catch(() => {});

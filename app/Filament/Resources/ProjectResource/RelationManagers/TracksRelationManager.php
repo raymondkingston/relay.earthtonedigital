@@ -14,6 +14,7 @@ use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Actions\Action;
 use Filament\Notifications\Notification;
+use App\Filament\Resources\TrackResource;
 
 class TracksRelationManager extends RelationManager
 {
@@ -36,8 +37,14 @@ class TracksRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('track_number')->sortable(),
                 Tables\Columns\TextColumn::make('title')->searchable(),
             ])
+            ->defaultSort('track_number')
             ->headerActions([
-                Tables\Actions\CreateAction::make(),
+                Tables\Actions\Action::make('createTrack')
+                    ->label('New Track')
+                    ->icon('heroicon-o-plus')
+                    ->url(fn (): string => TrackResource::getUrl('create', [
+                        'project_id' => $this->getOwnerRecord()->getKey(),
+                    ])),
             ])
             ->actions([
                 Tables\Actions\Action::make('edit')

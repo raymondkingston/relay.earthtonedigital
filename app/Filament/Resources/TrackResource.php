@@ -6,11 +6,13 @@ use App\Filament\Resources\TrackResource\Pages;
 use App\Filament\Resources\TrackResource\RelationManagers;
 use App\Models\Track;
 use App\Models\Project;
+use App\Support\TrackFilenameParser;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -128,30 +130,22 @@ class TrackResource extends Resource
                             ->required(),
                     ]),
 
-                Forms\Components\TextInput::make('title')
-                    ->required()
-                    ->maxLength(255),
-
-                Forms\Components\TextInput::make('track_number')
-                    ->numeric()
-                    ->minValue(1)
-                    ->nullable(),
-
-                Forms\Components\Textarea::make('notes')
-                    ->rows(3)
-                    ->nullable()
-                    ->columnSpanFull(),
-
                 Forms\Components\FileUpload::make('storage_path')
                     ->label('Audio file')
                     ->disk(config('filesystems.default'))
-                    ->directory(function (?Track $record) {
-                        if (! $record || ! $record->project || ! $record->project->artist) {
+                    ->directory(function (Forms\Get $get, ?Track $record) {
+                        $project = $record?->project;
+
+                        if (! $project && $get('project_id')) {
+                            $project = Project::with('artist')->find($get('project_id'));
+                        }
+
+                        if (! $project || ! $project->artist) {
                             return 'media/_unassigned/audio';
                         }
 
-                        $artistSlug = $record->project->artist->slug ?? 'artist-'.$record->project->artist_id;
-                        $projectSlug = $record->project->slug ?? 'project-'.$record->project_id;
+                        $artistSlug = $project->artist->slug ?? 'artist-'.$project->artist_id;
+                        $projectSlug = $project->slug ?? 'project-'.$project->id;
 
                         return "media/{$artistSlug}/{$projectSlug}/audio";
                     })
@@ -166,9 +160,56 @@ class TrackResource extends Resource
                         '.wav',
                         '.flac',
                     ])
-                    ->maxSize(204800)   // 200 MB
+                    ->maxSize(config('relay.track_upload_max_kb'))
                     ->preserveFilenames()
-                    ->visibility('public'),
+                    ->visibility('public')
+                    ->live()
+                    ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get, mixed $state): void {
+                        $filename = $state instanceof TemporaryUploadedFile
+                            ? $state->getClientOriginalName()
+                            : (is_string($state) ? basename($state) : null);
+
+                        if (! $filename) {
+                            return;
+                        }
+
+                        $parsed = TrackFilenameParser::parse($filename);
+
+                        if (! $get('track_number') && $parsed['track_number']) {
+                            $set('track_number', $parsed['track_number']);
+                        }
+
+                        if (! $get('title') && $parsed['title']) {
+                            $set('title', $parsed['title']);
+                        }
+
+                        if (! $get('recorded_at') && $parsed['recorded_at']) {
+                            $set('recorded_at', $parsed['recorded_at']);
+                        }
+
+                        if (! $get('notes') && $parsed['notes']) {
+                            $set('notes', $parsed['notes']);
+                        }
+                    }),
+
+                Forms\Components\TextInput::make('title')
+                    ->label('Track Title')
+                    ->required()
+                    ->maxLength(255),
+
+                Forms\Components\TextInput::make('track_number')
+                    ->numeric()
+                    ->minValue(1)
+                    ->nullable(),
+
+                Forms\Components\DatePicker::make('recorded_at')
+                    ->label('Date Recorded')
+                    ->nullable(),
+
+                Forms\Components\Textarea::make('notes')
+                    ->rows(3)
+                    ->nullable()
+                    ->columnSpanFull(),
             ]);
     }
 
@@ -180,6 +221,10 @@ class TrackResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('track_number')
                     ->numeric(),
+                Tables\Columns\TextColumn::make('recorded_at')
+                    ->label('Date')
+                    ->date()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
