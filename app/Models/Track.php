@@ -2,10 +2,11 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Storage;
 use App\Jobs\GenerateTrackWaveform;
+use App\Support\LocalAudioFile;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class Track extends Model
 {
@@ -25,10 +26,10 @@ class Track extends Model
     ];
 
     protected $casts = [
-        'duration_seconds'      => 'integer',
-        'file_size_bytes'       => 'integer',
-        'bitrate'               => 'integer',
-        'recorded_at'           => 'date',
+        'duration_seconds' => 'integer',
+        'file_size_bytes' => 'integer',
+        'bitrate' => 'integer',
+        'recorded_at' => 'date',
         'waveform_generated_at' => 'datetime',
     ];
 
@@ -60,55 +61,26 @@ class Track extends Model
             return;
         }
 
-        $localPath = null;
-        $deleteTmp = false;
-
-        if (method_exists($disk, 'path')) {
-            $localPath = $disk->path($relativePath);
-        } else {
-            $tmpFile = tempnam(sys_get_temp_dir(), 'track_');
-
-            $stream = $disk->readStream($relativePath);
-            if ($stream === false) {
-                return;
-            }
-
-            $contents = stream_get_contents($stream);
-            if (is_resource($stream)) {
-                fclose($stream);
-            }
-
-            file_put_contents($tmpFile, $contents);
-
-            $localPath = $tmpFile;
-            $deleteTmp = true;
-        }
-
-        if (! $localPath || ! file_exists($localPath)) {
-            return;
-        }
-
         try {
-            $getID3 = new \getID3;
-            $info = $getID3->analyze($localPath);
+            LocalAudioFile::withPath($disk, $relativePath, function (string $localPath): void {
+                $getID3 = new \getID3;
+                $info = $getID3->analyze($localPath);
 
-            $this->duration_seconds = isset($info['playtime_seconds'])
-                ? (int) round($info['playtime_seconds'])
-                : null;
+                $this->duration_seconds = isset($info['playtime_seconds'])
+                    ? (int) round($info['playtime_seconds'])
+                    : null;
 
-            $this->file_size_bytes = $info['filesize'] ?? @filesize($localPath) ?: null;
-            $this->format = $info['fileformat'] ?? null;
+                $this->file_size_bytes = $info['filesize'] ?? @filesize($localPath) ?: null;
+                $this->format = $info['fileformat'] ?? null;
 
-            if (isset($info['bitrate'])) {
-                $this->bitrate = (int) $info['bitrate'];
-            }
+                if (isset($info['bitrate'])) {
+                    $this->bitrate = (int) $info['bitrate'];
+                }
 
-            $this->original_filename =
-                $info['filename'] ?? basename($this->storage_path);
-        } finally {
-            if ($deleteTmp && isset($tmpFile) && file_exists($tmpFile)) {
-                @unlink($tmpFile);
-            }
+                $this->original_filename = $this->original_filename ?: basename($this->storage_path);
+            });
+        } catch (\Throwable $e) {
+            Log::warning('Audio metadata extraction failed for track '.$this->id.': '.$e->getMessage());
         }
     }
 

@@ -1,9 +1,9 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
 use App\Jobs\GenerateTrackWaveform;
 use App\Models\Track;
+use Illuminate\Foundation\Inspiring;
+use Illuminate\Support\Facades\Artisan;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -25,14 +25,21 @@ Artisan::command('relay:generate-waveforms {--force : Regenerate existing wavefo
     $bar = $this->output->createProgressBar($tracks->count());
     $bar->start();
 
+    $failed = [];
     foreach ($tracks as $track) {
-        GenerateTrackWaveform::dispatchSync($track);
+        if (! (new GenerateTrackWaveform($track))->handle()) {
+            $failed[] = $track->id;
+        }
         $bar->advance();
     }
 
     $bar->finish();
     $this->newLine(2);
-    $this->info("Processed {$tracks->count()} tracks.");
+    $succeeded = $tracks->count() - count($failed);
+    $this->info("Generated {$succeeded} waveform(s).");
+    if ($failed) {
+        $this->error('Failed track IDs: '.implode(', ', $failed).'. See storage/logs/laravel.log for details.');
+    }
 
-    return 0;
+    return $failed ? 1 : 0;
 })->purpose('Generate missing track waveform images');
