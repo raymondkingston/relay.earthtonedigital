@@ -12,12 +12,33 @@ class VisibilityAccessTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_guests_cannot_view_private_project_without_share_key(): void
+    #[\PHPUnit\Framework\Attributes\DataProvider('restrictedProjectRequests')]
+    public function test_guests_see_visibility_message_without_valid_share_key(string $visibility, array $query): void
     {
-        $project = $this->createProject('Private Project', 'private');
+        $project = $this->createProject('Restricted Project', $visibility);
 
-        $this->get(route('projects.show', $project))
-            ->assertNotFound();
+        $this->get(route('projects.show', ['project' => $project, ...$query]))
+            ->assertForbidden()
+            ->assertSee("That project is marked as {$visibility}.")
+            ->assertSee('Be sure to use the exact link you were given to see non-public projects, or contact Ray directly.')
+            ->assertDontSee($project->title)
+            ->assertDontSee($project->share_token)
+            ->assertDontSee($project->artist->share_token);
+    }
+
+    public static function restrictedProjectRequests(): array
+    {
+        return [
+            ['private', []],
+            ['unlisted', []],
+            ['private', ['project_key' => 'incorrect']],
+            ['unlisted', ['artist_key' => 'incorrect']],
+        ];
+    }
+
+    public function test_missing_project_still_returns_not_found(): void
+    {
+        $this->get('/projects/does-not-exist')->assertNotFound();
     }
 
     public function test_project_share_key_allows_guest_to_view_private_project(): void

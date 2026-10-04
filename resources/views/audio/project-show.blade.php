@@ -1,5 +1,19 @@
 <x-layouts.app :title="$project->title" :pageTitle="$project->title">
-    <section class="mb-6">
+    <section class="relative mb-6">
+        @if($project->tracks->contains(fn ($track) => filled($track->storage_path)))
+            <div class="flex justify-end mb-4 sm:absolute sm:top-0 sm:right-0 sm:z-10">
+                <div class="text-right">
+                    <a
+                        href="{{ route('projects.download', array_merge(['project' => $project], array_filter([
+                            'project_key' => $project->hasValidShareKey(request()) ? request('project_key') : null,
+                            'artist_key' => $project->artist?->hasValidShareKey(request()) ? request('artist_key') : null,
+                        ]))) }}"
+                        class="inline-flex items-center justify-center rounded bg-[#e0edcf] px-3 py-1 text-base text-[#003d4c] hover:bg-white focus-visible:outline focus-visible:outline-2 text-sm focus-visible:outline-offset-4 focus-visible:outline-orange-500"
+                    >Download All</a>
+                    <p class="mt-2 text-xs text-slate-300">Saves a ZIP of audio files</p>
+                </div>
+            </div>
+        @endif
         <div
             x-data="{ shrink: false }"
             x-init="shrink = window.scrollY > 10"
@@ -31,7 +45,7 @@
                 </div>
             </div>
 
-            <div class="md:pr-12 lg:pr-0">
+            <div class="md:pr-12 lg:pr-0 {{ $project->tracks->contains(fn ($track) => filled($track->storage_path)) ? 'sm:pt-24' : '' }}">
                 <h1 class="text-center sm:text-left text-2xl md:text-4xl font-semibold text-balance pt-4 sm:pt-0 mb-1">{{ $project->title }}</h1>
                 <a href="{{ route('artists.show', array_merge(
                     ['artist' => $project->artist],

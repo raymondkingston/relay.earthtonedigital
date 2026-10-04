@@ -78,7 +78,11 @@ class AudioBrowseController extends Controller
     {
         $project->load('artist');
 
-        abort_unless($project->isVisibleTo($request), 404);
+        if (! $project->isVisibleTo($request)) {
+            return response()->view('audio.project-restricted', [
+                'visibility' => $project->visibility,
+            ], 403);
+        }
 
         $project->load(['artist', 'tracks' => function ($q) {
             $q->orderBy('track_number')->orderBy('id');
