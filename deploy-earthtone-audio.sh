@@ -1,26 +1,58 @@
-cd /home/ploi/relay.earthtonedigital.com
+#!/usr/bin/env bash
+set -euo pipefail
 
-# update code
-git pull origin main
+APP_DIR="/home/ploi/relay.earthtonedigital.com"
+cd "$APP_DIR"
 
-# remove the src directory if it exists
-rm -rf src
+trap 'echo "Deployment failed near line $LINENO" >&2' ERR
 
-# go into the Laravel subdir
-cd audio-app
+# Prevent overlapping deployments using this script.
+exec 9>"$APP_DIR/storage/deploy.lock"
+flock -n 9 || {
+    echo "Another deployment is running." >&2
+    exit 1
+}
 
-# install PHP deps
-if [ -f composer.json ]; then
-    composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
-fi
+# Production intentionally follows GitHub main.
+git fetch origin main
+git reset --hard origin/main
 
-# install/build frontend (if you want Vite builds on prod)
-if [ -f package.json ]; then
-    npm install
-    npm run build
-fi
+# Remove stale bootstrap caches before Composer boots Laravel.
+rm -f bootstrap/cache/{config,events,routes-v7,services,packages,blade-icons}.php
+rm -rf bootstrap/cache/filament
 
-# Laravel housekeeping
-php artisan key:generate --force
+composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
+
+npm ci
+npm run build
+
 php artisan migrate --force
-php artisan optimize
+
+# Create the storage link only when absent; reject unexpected paths.
+if [ ! -e public/storage ] && [ ! -L public/storage ]; then
+    php artisan storage:link
+fi
+
+if [ ! -L public/storage ] ||
+   [ "$(readlink -f public/storage)" != "$(readlink -f storage/app/public)" ]; then
+    echo "public/storage is not the expected storage symlink." >&2
+    exit 1
+fi
+
+# Rebuild deployment caches once.
+php artisan config:cache
+php artisan event:cache
+php artisan route:cache
+php artisan view:cache
+php artisan icons:cache
+php artisan filament:cache-components
+
+# Refresh web workers and their OPcache.
+sudo -n service php8.4-fpm reload
+
+# Verify Laravel responds over HTTP.
+curl --fail --silent --show-error \
+    --retry 3 --retry-delay 2 --max-time 20 \
+    https://relay.earthtonedigital.com/up >/dev/null
+
+echo "Deployment completed: $(git rev-parse --short HEAD)"
